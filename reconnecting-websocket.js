@@ -53,13 +53,15 @@ function ReconnectingWebSocket(url, protocols) {
     // These can be altered by calling code.
     this.debug = false;
     this.reconnectInterval = 1000;
+    this.reconnectIntervalMax = 1000000;
     this.timeoutInterval = 2000;
 
     var self = this;
     var ws;
     var forcedClose = false;
     var timedOut = false;
-    
+    var expBackoffMult = 1;
+
     this.url = url;
     this.protocols = protocols;
     this.readyState = WebSocket.CONNECTING;
@@ -105,6 +107,7 @@ function ReconnectingWebSocket(url, protocols) {
             }
             self.readyState = WebSocket.OPEN;
             reconnectAttempt = false;
+            expBackoffMult = 1;
             self.onopen(event);
         };
         
@@ -125,7 +128,11 @@ function ReconnectingWebSocket(url, protocols) {
                 }
                 setTimeout(function() {
                     connect(true);
-                }, self.reconnectInterval);
+                }, self.reconnectInterval * expBackoffMult*(0.75+Math.random(0.5)));
+                expBackoffMult = Math.min(
+                    expBackoffMult * 2,
+                    self.reconnectIntervalMax / self.reconnectInterval
+                );
             }
         };
         ws.onmessage = function(event) {
